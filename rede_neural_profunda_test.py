@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 from rede_neural_profunda import *
 import sklearn.datasets
+from typing import Dict
 class TestFuncaoAtivacao(unittest.TestCase):
     def test_sigmoid(self):
         a = sigmoid.dz_ultima_camada(np.array([-0.8,-0.4,0.2]),np.array([-0.8,-0.4,0.2]),np.array([0,10,1]),np.array([0,10,1]))
@@ -189,7 +190,40 @@ class TestCamada(unittest.TestCase):
                                 [4,3]])
         return camada_sigmoid
 
+    def camada_teste_backward(self, camada:Camada, 
+                                    mat_z:np.array,
+                                    mat_w:np.array,
+                                    arr_y:np.array,
+                                    funcao_ativacao:FuncaoAtivacao,
+                                    nome_funcao_ativacao:str,
+                                    mat_a_ant:np.array,
+                                    expected_grads:Dict ):
 
+        #coloca os pesos corretos nas unidades e a matriz de ativações
+        camada.mat_a = funcao_ativacao.funcao(mat_z)
+        camada.qtd_un_camada_ant = mat_a_ant.shape[1]
+        for i in range(2):
+            camada.arr_unidades[i].arr_z = mat_z[:,i]
+            camada.arr_unidades[i].arr_a = camada.mat_a[:,i]
+            camada.arr_unidades[i].mat_a_ant = mat_a_ant
+            camada.arr_unidades[i].arr_w = mat_w[i]
+
+        #executa o backward propagation
+        camada.backward_propagation(arr_y)
+
+        for i in range(2):
+
+            grads = ["db","arr_dw"]
+            for grad_name in grads:
+                grad_expected = expected_grads[grad_name][i]
+                
+
+                #para cada gradiente, verifica as dimensões e os resultados
+                grad =  camada.arr_unidades[i].gradiente.__dict__[grad_name]
+
+
+                self.verifica_grad(grad,grad_expected,grad_name,nome_funcao_ativacao)
+                
     def test_backward_propagation(self):
         np.random.seed(1)
         mat_z = np.array([[3,-3],
@@ -206,56 +240,37 @@ class TestCamada(unittest.TestCase):
                             "db":np.array([0.16121531345200216,-2.77555756156289E-017])
                             }
         expected_relu ={
-                        "db":np.array([0.75,0.75]),
-                        "arr_dw":np.array([ [1.7525,	0,	1.75],
-                                        [1.0025,	0.75,	1.5],
+                        "db":np.array([-0.08716334570861797,0.18400765036856515]),
+                        "arr_dw":np.array([[-0.11055054,  0,   -0.48174745],
+                                        [0.23882682, 0.50060338, 0.16252645],
                                         ])
                              }
         mat_w = np.array([[0.2,0.1,0.9],
-                 [0.5,0.7,0.1]]).T
+                 [0.5,0.7,0.1]])
 
         arr_y = np.array([1,0,0,1])
 
+        #teste camada sigmoid (sem proxima camada)
         camada_sigmoid = Camada(2,sigmoid.funcao,sigmoid.dz_ultima_camada)
-        #camada_relu = Camada(2,3,relu,relu_dz)
+        self.camada_teste_backward(camada_sigmoid,mat_z,mat_w,arr_y,sigmoid,
+                                    'sigmoid',mat_a_ant,expected_sigmoid)
+        #teste camada relu (com proxima camada)
+        camada_relu = Camada(2,relu.funcao,relu.dz_funcao)
+        camada_relu.prox_camada = camada_sigmoid
+        
+        self.camada_teste_backward(camada_relu,mat_z,mat_w,arr_y,relu,
+                                    'relu',mat_a_ant,expected_relu)
 
-        #coloca os pesos corretos nas unidades e a matriz de ativações
-        for i in range(2):
-            mat_a_sigmoid = sigmoid.funcao(mat_z)
-            mat_a_relu = relu.funcao(mat_z)
-            #print("MATZ: "+str(mat_z))
-            #print("MAT_A_RELU: "+str(mat_a_relu))
-            camada_sigmoid.arr_unidades[i].arr_z = mat_z[:,i]
-            camada_sigmoid.arr_unidades[i].arr_a = mat_a_sigmoid[:,i]
-            camada_sigmoid.arr_unidades[i].mat_a_ant = mat_a_ant
-            camada_sigmoid.arr_unidades[i].arr_w = mat_w[i]
-            """
-            camada_relu.arr_unidades[i].arr_z = mat_z[:,i]
-            camada_relu.arr_unidades[i].arr_a = mat_a_relu[:,i]
-            camada_relu.arr_unidades[i].arr_w = mat_w[i]
-            camada_relu.arr_unidades[i].mat_a_ant = mat_a_ant
-            """
-        camada_sigmoid.backward_propagation(arr_y)
-        #camada_relu.backward_propagation(arr_y,arr_dz_dw_prox)
-        for i in range(2):
 
-            grads = ["db","arr_dw"]
-            for grad_name in grads:
-                grad_exp_sigmoid = expected_sigmoid[grad_name][i]
-                grad_exp_relu = expected_relu[grad_name][i]
-
-                #para cada gradiente, verifica as dimensões
-                grad_sigmoid =  camada_sigmoid.arr_unidades[i].gradiente.__dict__[grad_name]
-                #grad_relu =  camada_relu.arr_unidades[i].gradiente.__dict__[grad_name]
-
-                self.verifica_grad(grad_sigmoid,grad_exp_sigmoid,grad_name,"sigmoid")
-                #self.verifica_grad(grad_relu,grad_exp_relu,grad_name,"relu")
     def verifica_grad(self,grad,grad_expected,grad_name,nom_ativacao):
         if(type(grad)==list or type(grad)==np.ndarray):
             self.assertListEqual(list(grad.shape),list(grad_expected.shape),"A dimensão do gradiente "+grad_name+" está incorreta ("+nom_ativacao+")")
 
             #verifica o resultado do gradiente
-            self.assertListEqual(list(grad),list(grad_expected),"Valor inesperado para o gradiente "+grad_name+" ("+nom_ativacao+") deveria ser: "+str(grad_expected))
+            for i,grad_val in enumerate(grad):
+                self.assertAlmostEqual(grad_val,grad_expected[i],
+                        msg=f"Valor inesperado para o gradiente {grad_name} posição {i}"+\
+                             f"  ({nom_ativacao}) deveria ser: {grad_expected[i]}\n valor obtido {grad_name}: {grad} \n esperado:{grad_expected}")
         else:
             self.assertAlmostEqual(grad,grad_expected,msg="Valor inesperado para o gradiente "+grad_name+"   ("+nom_ativacao+") deveria ser: "+str(grad_expected))
 class TestRedeNeural(unittest.TestCase):
