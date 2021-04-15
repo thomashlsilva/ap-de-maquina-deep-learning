@@ -3,7 +3,12 @@ import unittest
 from rede_neural_profunda import *
 import sklearn.datasets
 from typing import Dict
+
+
+
+            
 class TestFuncaoAtivacao(unittest.TestCase):
+
     def test_sigmoid(self):
         a = sigmoid.dz_ultima_camada(np.array([-0.8,-0.4,0.2]),np.array([-0.8,-0.4,0.2]),np.array([0,10,1]),np.array([0,10,1]))
         arr_esp = [-0.8,-10.4,-0.8]
@@ -36,6 +41,8 @@ class TestFuncaoAtivacao(unittest.TestCase):
         expected = [1.64892291e-08, 2.68190137e-03, 1.92208597e+00, 2.00000000e+00]
         for i,dz in enumerate(arr_dz):
             self.assertAlmostEqual(dz,expected[i],msg="Valor inesperado para o calculo da funcao dz da hiperbolica (tanh)")
+            
+            
 class TestCamada(unittest.TestCase):
     arr_entrada = [np.array([#1a entrada
                         [1,     0.75],
@@ -273,7 +280,12 @@ class TestCamada(unittest.TestCase):
                              f"  ({nom_ativacao}) deveria ser: {grad_expected[i]}\n valor obtido {grad_name}: {grad} \n esperado:{grad_expected}")
         else:
             self.assertAlmostEqual(grad,grad_expected,msg="Valor inesperado para o gradiente "+grad_name+"   ("+nom_ativacao+") deveria ser: "+str(grad_expected))
+
+            
 class TestRedeNeural(unittest.TestCase):
+    def assertListAlmostEqual(self,arr_a, arr_b, msg):
+        for i,a in enumerate(arr_a):
+            self.assertAlmostEqual(a, arr_b[i], msg=f"Erro na posição {i} da lista: {msg}")
     def test_config_rede(self):
         mat_x = TestCamada.arr_entrada[0]
         self.redeNeural  = RedeNeural([3,2],
@@ -283,6 +295,12 @@ class TestRedeNeural(unittest.TestCase):
         #primeira camada sigmoid
         #segunda camanada relu
         self.assertEqual(len(self.redeNeural.arr_camadas),2)
+        
+        #o tipo de cada dz_funcao e funcao deve ser uma função
+        for i,camada in enumerate(self.redeNeural.arr_camadas):
+            for j,unidade in enumerate(camada.arr_unidades):
+                self.assertTrue(callable(unidade.func_ativacao),f"O atributo 'func_ativacao' da unidade {j}  camada {i} deve ser uma função python")
+                self.assertTrue(callable(unidade.dz_func),f"O atributo 'dz_func' da unidade {j}  camada {i} deve ser uma função python")
 
 
 
@@ -298,24 +316,25 @@ class TestRedeNeural(unittest.TestCase):
                             ])
         self.assertListEqual(list(self.redeNeural.arr_camadas[1].mat_a.shape),list(expected_final_a.shape),"As dimensões da matriz de ativação (ultima camada) estão incorretas (nao foi testado as anteriores)")
         for i,arr_inst_i in enumerate(self.redeNeural.arr_camadas[1].mat_a):
-            self.assertListEqual(list(arr_inst_i),list(expected_final_a[i]),"O valor para instancia "+str(i)+" da matriz de ativação da ultima camada não está correta (nao foi testado as anteriores)")
+            self.assertListAlmostEqual(list(arr_inst_i),list(expected_final_a[i]),"O valor para instancia "+str(i)+" da matriz de ativação da ultima camada não está correta (nao foi testado as anteriores)")
 
     def test_backward_propagation(self):
         self.redeNeural.config_rede(TestCamada.arr_entrada[0],np.array([1,0,0,1]))
         self.atualiza_pesos()
         self.redeNeural.forward_propagation()
         self.redeNeural.backward_propagation()
-        expected_grads_por_unidade = {"arr_dw":np.array([[0.4023691244590959, -0.07128003709783344],
+
+        expected_grads_por_unidade = {"arr_dw":np.array([[0.4023691244590959, -0.07128003709783343],
                                                 [0.06275930383817924, 0.0998381240784498],
-                                                [0.3684344824561145, -0.0696024190012941],
+                                                [0.36843448245611465, -0.06960241900129413],
                                                 ]),
                                     "db":np.array([0.5464155784916468,0.13452311118634733,0.5000663175114496]),
                                     }
         for i,unidade in enumerate(self.redeNeural.arr_camadas[0].arr_unidades):
             self.assertAlmostEqual(expected_grads_por_unidade["db"][i],unidade.gradiente.db,msg="O gradiente db (primeira camada, unidade "+str(i)+") está incorreto (as demais camadas não foram testadas) Unidade:\n"+str(unidade))
             self.assertListEqual(list(expected_grads_por_unidade["arr_dw"][i].shape),list(unidade.gradiente.arr_dw.shape),"As dimensões do gradiente dw (primeira camada) estão incorretas  (as demais camadas não foram testadas) Unidade:\n"+str(unidade))
-
-            self.assertListEqual(list(expected_grads_por_unidade["arr_dw"][i]),list(unidade.gradiente.arr_dw),"O gradiente dw (primeira camada, unidade "+str(i)+") está incorreto (as demais camadas não foram testadas) Unidade:\n"+str(unidade))
+            
+            self.assertListAlmostEqual(list(expected_grads_por_unidade["arr_dw"][i]),list(unidade.gradiente.arr_dw),"O gradiente dw (primeira camada, unidade "+str(i)+") está incorreto (as demais camadas não foram testadas) Unidade:\n"+str(unidade))
 
     def test_fit(self):
         np.random.seed(0)
@@ -332,17 +351,20 @@ class TestRedeNeural(unittest.TestCase):
                                 1000)
         self.redeNeural.fit(mat_x,arr_y,1.1)
 
-        expected = [0.0036241470553106353,8.316717230816577e-06,
+        expected = [0.0036241470553106283,8.316717230816547e-06,
                     0.9990737642484306,0.9968156936168789]
-        self.assertListEqual(expected,list(self.redeNeural.arr_camadas[1].arr_unidades[0].arr_a),"A saida final nao está com o valor previsto!")
+        self.assertListAlmostEqual(expected,list(self.redeNeural.arr_camadas[1].arr_unidades[0].arr_a),"A saida final nao está com o valor previsto!")
     def test_predict(self):
         self.test_fit()
         mat_x =         np.array([[0.1,0.01,0.4,0.5],#instancia 1
                                         [0.1,0.2,0.1,0.2],#instancia 2
                                         [0.7,0.1,0.3,0.7],#instancia 3
-                                        [0.6,0.1,0.5,0.4]#instancia 3
+                                        [0.6,0.1,0.5,0.4],#instancia 4,
+					                    [0.1,0.01,0.4,0.5],#instancia 5
                                         ])
-        self.assertListEqual(list(self.redeNeural.predict(mat_x)),[0,0,1,1])
+        arr_predicts = self.redeNeural.predict(mat_x)
+        self.assertEquals(len(arr_predicts),5, "Quantidade de resultados inesperada")
+        self.assertListEqual(list(self.redeNeural.predict(mat_x)),[0, 0, 1, 1, 0])
     def atualiza_pesos(self):
         #atualiza pesos de cada camada
         arr_camada_peso_idx = [0,2]
