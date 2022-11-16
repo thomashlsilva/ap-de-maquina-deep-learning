@@ -11,7 +11,7 @@ class Gradiente():
         return "db: "+str(self.db)+" arr_dw: "+str(self.arr_dw)
 
 """
-Atividade 1: FUncoes de ativação - altere a resposta das funcoes lambdas correspondentes
+Atividade 1: Funções de ativação - altere a resposta das funções lambdas correspondentes
 de acordo com a especificação
 """
 

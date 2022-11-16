@@ -15,7 +15,7 @@ def plot_decision_boundary(model,X,y,normalize=False):
     x_min,x_max=x_axis_list.min(), x_axis_list.max()
     y_min,y_max=y_axis_list.min(), y_axis_list.max()
 
-    #normaliza os valores de X e Y (se necessario)
+    #normaliza os valores de X e Y (se necessário)
     if(normalize):
         x_axis_list /= x_max
         y_axis_list /= y_max
