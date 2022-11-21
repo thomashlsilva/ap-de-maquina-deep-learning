@@ -293,7 +293,7 @@ class TestRedeNeural(unittest.TestCase):
                                 100)
         self.redeNeural.config_rede(mat_x, np.array([1,0,0,1]))
         #primeira camada sigmoid
-        #segunda camanada relu
+        #segunda camada relu
         self.assertEqual(len(self.redeNeural.arr_camadas),2)
         
         #o tipo de cada dz_funcao e funcao deve ser uma função
@@ -301,8 +301,11 @@ class TestRedeNeural(unittest.TestCase):
             for j,unidade in enumerate(camada.arr_unidades):
                 self.assertTrue(callable(unidade.func_ativacao),f"O atributo 'func_ativacao' da unidade {j}  camada {i} deve ser uma função python")
                 self.assertTrue(callable(unidade.dz_func),f"O atributo 'dz_func' da unidade {j}  camada {i} deve ser uma função python")
-
-
+           
+        #para cada camada até a penultima, é necessário armazenar em camada.prox_camada a camada seguinte
+        for i,camada in enumerate(self.redeNeural.arr_camadas):
+            if(i<len(self.redeNeural.arr_camadas)-1 and camada.prox_camada is None):
+                self.assertTrue(callable(self.redeNeural.arr_camadas),f"A proxima camada deve ser armazenada no atributo 'prox_camada' da camada {i} ")
 
 
     def test_forward_propagation(self):
