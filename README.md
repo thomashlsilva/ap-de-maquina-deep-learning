@@ -31,7 +31,7 @@ sigmoid = FuncaoAtivacao(
 )
 ```
 
-### 2. `Unidade`
+### 2. Unidade
 - **Forward propagation**:  
   Cálculo da saída linear:  
   `z = w·A_ant + b`  
