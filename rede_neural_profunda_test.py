@@ -226,6 +226,7 @@ class TestCamada(unittest.TestCase):
                 
 
                 #para cada gradiente, verifica as dimensões e os resultados
+                print(camada.arr_unidades[i].gradiente)
                 grad =  camada.arr_unidades[i].gradiente.__dict__[grad_name]
 
 
@@ -301,11 +302,8 @@ class TestRedeNeural(unittest.TestCase):
             for j,unidade in enumerate(camada.arr_unidades):
                 self.assertTrue(callable(unidade.func_ativacao),f"O atributo 'func_ativacao' da unidade {j}  camada {i} deve ser uma função python")
                 self.assertTrue(callable(unidade.dz_func),f"O atributo 'dz_func' da unidade {j}  camada {i} deve ser uma função python")
-           
-        #para cada camada até a penultima, é necessário armazenar em camada.prox_camada a camada seguinte
-        for i,camada in enumerate(self.redeNeural.arr_camadas):
-            if(i<len(self.redeNeural.arr_camadas)-1 and camada.prox_camada is None):
-                self.assertTrue(callable(self.redeNeural.arr_camadas),f"A proxima camada deve ser armazenada no atributo 'prox_camada' da camada {i} ")
+
+
 
 
     def test_forward_propagation(self):

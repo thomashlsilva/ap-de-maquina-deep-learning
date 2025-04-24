@@ -11,7 +11,7 @@ class Gradiente():
         return "db: "+str(self.db)+" arr_dw: "+str(self.arr_dw)
 
 """
-Atividade 1: Funções de ativação - altere a resposta das funções lambdas correspondentes
+Atividade 1: FUncoes de ativação - altere a resposta das funcoes lambdas correspondentes
 de acordo com a especificação
 """
 
@@ -22,23 +22,23 @@ class FuncaoAtivacao():
         self.dz_ultima_camada = dz_ultima_camada
 
 sigmoid = FuncaoAtivacao(lambda z:1/(1+np.power(math.e,-z)),
-                      lambda a,z,y,arr_dz_w_prox:None,
-                      lambda a,z,y,arr_dz_w_prox:None
+                      lambda a,z,y,arr_dz_w_prox:np.multiply(a-np.power(a,2), arr_dz_w_prox),
+                      lambda a,z,y,arr_dz_w_prox:a-y
                       )
 
-relu = FuncaoAtivacao(lambda z:None,
-                      lambda a,z,y,arr_dz_w_prox:None
-                      )
-
-
-
-leaky_relu = FuncaoAtivacao(lambda z:None,
-                      lambda a,z,y,arr_dz_w_prox:None
+relu = FuncaoAtivacao(lambda z:np.maximum(0,z),
+                      lambda a,z,y,arr_dz_w_prox:arr_dz_w_prox*(z>=0)
                       )
 
 
-tanh = FuncaoAtivacao(lambda z: None,
-                      lambda a,z,y,arr_dz_w_prox:None
+
+leaky_relu = FuncaoAtivacao(lambda z:np.maximum(0.01*z,z),
+                      lambda a,z,y,arr_dz_w_prox:arr_dz_w_prox*np.array([1 if  i >= 0 else 0.01 for i in z])
+                      )
+
+
+tanh = FuncaoAtivacao(lambda z:np.tanh(z),
+                      lambda a,z,y,arr_dz_w_prox:arr_dz_w_prox*(1-np.power(np.tanh(z), 2))
                       )
 
 
@@ -138,7 +138,7 @@ class Camada():
         Atividade 2: Inicialize o vetor de arr_unidades com a unidade correspondete
         """
         for i in range(qtd_unidades):
-            self.arr_unidades.append(None)
+            self.arr_unidades.append(Unidade(func_ativacao,func_dz))
 
 
 
@@ -149,11 +149,11 @@ class Camada():
         """
         #obtenha a quantidade de unidades na camada anterior  por meio de mat_a_ant
         #..pense nas dimensões da matriz
-        self.qtd_un_camada_ant = None
+        self.qtd_un_camada_ant = mat_a_ant.shape[1]
 
         #Inicialize com zeros a matriz de ativacao da camada atual
         #..Novamente, verifique as dimensões da matriz
-        self.mat_a = None
+        self.mat_a = np.zeros((mat_a_ant.shape[0], len(self.arr_unidades)))
 
         #print("MAT A:"+str(self.mat_a.shape))
         #print("MAT_A_ANT: "+str(mat_a_ant))
@@ -161,7 +161,8 @@ class Camada():
         #...o forward_propagation da unidade retorna um vetor arr_a com as ativações
         #... por instancia. Você deve armazenar os valores corretamente na matriz mat_a (veja especificação)
         for i,unidade in enumerate(self.arr_unidades):
-            None
+            arr_a = unidade.forward_propagation(mat_a_ant) 
+            self.mat_a[:,i] = arr_a
 
         return self.mat_a
 
@@ -174,12 +175,12 @@ class Camada():
         """
         #inicialize com zero a matriz
         #de acordo com as suas dimensoes
-        _mat_w = None
+        _mat_w = np.zeros((len(self.arr_unidades), self.qtd_un_camada_ant))
 
         #para cada unidade, preencha corretamente os valores da matriz
         #usando o vetor de pesos de cada unidade
         for i,unidade in enumerate(self.arr_unidades):
-            _mat_w[None,None] = None
+            _mat_w[i,:] = unidade.arr_w
 
         return _mat_w
 
@@ -190,11 +191,11 @@ class Camada():
         Verifique as dimensões da matriz (preencha os None)
         """
         #inicialize com zero a matriz
-        _mat_dz = None
+        _mat_dz = np.zeros((self.mat_a.shape[0], len(self.arr_unidades)))
 
         #para cada unidade, preencha corretamente os valores da matriz
         for i,unidade in enumerate(self.arr_unidades):
-            _mat_dz[None,None] = None
+            _mat_dz[:,i] = unidade.gradiente.arr_dz
 
         return _mat_dz
 
@@ -204,7 +205,7 @@ class Camada():
         Realiza o calculo do produto entre mat_dz e mat_w
         chame as propriedades correspondentes
         """
-        return None
+        return np.matmul(self.mat_dz,self.mat_w)
 
     def backward_propagation(self,arr_y):
         """
@@ -212,17 +213,15 @@ class Camada():
         """
         #obtenha o mat_dz_w da proxima camada
         #..Caso não exista proxima camada, mat_dz_w_prox permanecerá None
-        mat_dz_w_prox = None
+        mat_dz_w_prox = self.prox_camada.mat_dz_w if self.prox_camada is not None else None
 
         for i,unidade in enumerate(self.arr_unidades):
             #Caso exista mat_dz_w_prox, obtenha o arr_dz_w_prox
             #..correspondente a esta unidade. Para isso, fique atento a dimensão de mat_dz_w_prox
-            arr_dz_w_prox =  None
+            arr_dz_w_prox =  mat_dz_w_prox[:,i] if mat_dz_w_prox is not None else None
 
             #chame o backwrd_propagation desta unidade
-            None
-
-
+            unidade.backward_propagation(arr_y, arr_dz_w_prox)
 
     def atualiza_pesos(self,learning_rate):
         """
@@ -237,11 +236,17 @@ class RedeNeural():
     def __init__(self,arr_qtd_un_por_camada,
                     arr_func_a_por_camada,
                     num_iteracoes):
+        #Vetor que armazena a lista de instancias da classe Camada dessa Rede Neural. Esses objetos são instanciados por meio do método config_rede
         self.arr_camadas = []
+        #Vetor de inteiros que, o valor na posição i do vetor corresponde a quantidade de unidades na i-ésima camada.
         self.arr_qtd_un_por_camada = arr_qtd_un_por_camada
+        #Função de ativação por camada. Esse vetor armazena objetos da classe FuncaoAtivacao em que, cada posição i do vetor, corresponde a função de ativação da i-ésima camada
         self.arr_func_a_por_camada = arr_func_a_por_camada
+        #Número de iterações (épocas) que a rede neural irá rodar
         self.num_iteracoes = num_iteracoes
+        #Representa o vetor y. Esses objetos são instanciados por meio do método config_rede
         self.arr_y = []
+        #Representa a matriz de atributos por instancias X. Esses objetos são instanciados por meio do método config_rede
         self.mat_x = None
 
     def config_rede(self,mat_x,arr_y):
@@ -256,25 +261,34 @@ class RedeNeural():
         for camada_l,qtd_unidades in enumerate(self.arr_qtd_un_por_camada):
             #por meio de arr_func_a_por_camada defina a dz_função que será usada
             #..caso seja a ultima camada, será usada a dz_ultima camada
-            dz_funcao = None if(camada_l<len(self.arr_qtd_un_por_camada)-1) else None
+            dz_ultima_camada = self.arr_func_a_por_camada[camada_l].dz_ultima_camada
+            dz_funcao = self.arr_func_a_por_camada[camada_l].dz_funcao if(camada_l<len(self.arr_qtd_un_por_camada)-1) else dz_ultima_camada
             #instancie a camda
-            obj_camada = None
+            obj_camada = Camada(qtd_unidades, self.arr_func_a_por_camada[camada_l].funcao, dz_funcao)
             self.arr_camadas.append(obj_camada)
-
             #armazena a camada anterior
             if(camada_l>0):
-                obj_camada.ant_camada = None
+                obj_camada.ant_camada = self.arr_camadas[camada_l-1]
 
         #para cada camada até a penultima, armazene em camada.prox_camada a camada seguinte
         for l,camada in enumerate(self.arr_camadas):
             if(l<len(self.arr_camadas)-1):
-                camada.prox_camada = None
+                camada.prox_camada = self.arr_camadas[l+1]
 
     def forward_propagation(self):
         """
         Atividade 7: Execute, para todas as camadas, o método forward_propagation.
         """
         num_camadas = len(self.arr_camadas)
+        mat_a = self.arr_camadas[0].forward_propagation(self.mat_x)
+        i=1
+        while i < num_camadas:
+            mat_a = self.arr_camadas[i].forward_propagation(mat_a)
+            if i == num_camadas:
+                break
+            i+=1
+        return mat_a
+            
 
 
     def backward_propagation(self):
@@ -282,6 +296,8 @@ class RedeNeural():
         Atividade 8: Execute, para todas as camadas, o método backward_propagation. Fique atento na ordem de execução
         """
         num_camadas = len(self.arr_camadas)
+        for i in range(num_camadas-1,-1,-1):
+            self.arr_camadas[i].backward_propagation(self.arr_y)
 
 
     def atualiza_pesos(self,learning_rate):
@@ -301,8 +317,13 @@ class RedeNeural():
         self.config_rede(mat_x,arr_y)
 
         for i in range(self.num_iteracoes):
-            #faça a qui a execução desta iteração
-
+            #faça aqui a execução desta iteração
+            self.mat_x = mat_x
+            self.arr_y = arr_y
+            self.forward_propagation()
+            self.backward_propagation()
+            self.atualiza_pesos(learning_rate)
+            
             #print("A: "+str(self.arr_camadas[0].arr_unidades[0].arr_a))
             #print("Y:"+str(arr_y))
             if(i % 100 == 0):
@@ -319,7 +340,7 @@ class RedeNeural():
         #..ativações (arr_a) apropriado. Fique atento com qual camada/unidade você deverá
         #..obter o arr_a. Preencha os None com o valor apropriado
 
-        arr_a = self.arr_camadas[None].arr_unidades[None].arr_a
+        arr_a = self.arr_camadas[0].arr_unidades[0].arr_a
         #print("ARRAY Y: "+str(arr_y))
         #print("ARRAY A: "+str(arr_a))
 
@@ -334,9 +355,9 @@ class RedeNeural():
         #..porém, deverá ficar atento a qual camada/unidade você deverá obter o vetor de ativações arr_a
         #..preencha os none com o valor apropriado
         self.mat_x = mat_x
-        self.forward_propagation()
+        mat_a = self.forward_propagation()
 
         #print(self.arr_a)
-        arr_a = self.arr_camadas[None].arr_unidades[None].arr_a
+        arr_a = self.arr_camadas[0].arr_unidades[0].arr_a
 
-        return None
+        return (1*(mat_a>0.5))
